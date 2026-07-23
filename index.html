@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Momentum">
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>Momentum 90</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #1C1C1E;
+      --card-past: #0C0C0D;
+      --text-main: #FFFFFF;
+      --text-muted: #8E8E93;
+      --accent: #0A84FF;
+      --success: #30D158;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    
+    * { 
+      box-sizing: border-box; 
+      margin: 0; padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; 
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    body { 
+      background-color: var(--bg); 
+      color: var(--text-main); 
+      padding-top: 80px; 
+      padding-bottom: 40px; 
+    }
+    
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 60px;
+      background: rgba(28, 28, 30, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 0.5px solid var(--border);
+      z-index: 1000;
+    }
+    
+    nav h1 { font-size: 17px; font-weight: 600; }
+    .container { padding: 0 20px; }
+    .header-title { font-size: 34px; font-weight: 700; margin: 10px 0 24px; letter-spacing: -1px; }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+
+    .card.today {
+      border: 1.5px solid var(--accent);
+      box-shadow: 0 0 20px rgba(10, 132, 255, 0.15);
+    }
+
+    .card.past {
+      background: var(--card-past);
+      opacity: 0.65;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 0.5px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .day-wrapper { display: flex; align-items: center; }
+    
+    .badge-today {
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-right: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .day-title { font-size: 20px; font-weight: 600; }
+    
+    .status-badge {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.1);
+      color: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+    
+    .status-badge.done {
+      background: rgba(48, 209, 88, 0.15);
+      color: var(--success);
+    }
+
+    /* Interactive Tasks */
+    .task-list { display: flex; flex-direction: column; }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 0.5px solid var(--border);
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .task-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .task-item:active { opacity: 0.6; }
+
+    .task-circle {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      margin-right: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .task-item.done .task-circle {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .task-item.done .task-circle::after {
+      content: '✓';
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .task-info { flex-grow: 1; }
+
+    .task-name {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .task-val {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-main);
+      transition: color 0.2s;
+    }
+
+    .task-item.done .task-val {
+      color: var(--text-muted);
+      text-decoration: line-through;
+    }
+
+    /* Tarjeta de Hidratación (contador) */
+    .task-item.hydration {
+      cursor: default;
+      align-items: center;
+    }
+
+    .hydration-info { flex-grow: 1; margin-right: 14px; }
+
+    .hydration-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+
+    .hydration-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .task-item.hydration.done .hydration-bar-fill {
+      background: var(--success);
+    }
+
+    .hydration-count {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .task-item.hydration.done .hydration-count {
+      color: var(--success);
+    }
+
+    .hydration-controls {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .water-btn {
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .water-btn.plus { background: var(--accent); }
+    .water-btn.minus { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+    .water-btn:active { opacity: 0.6; }
+
+    #loader { text-align: center; color: var(--text-muted); margin-top: 40px; font-size: 15px; }
+  
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0 24px;
+    }
+    
+    .header-title { margin: 0; }
+
+    .menu-btn {
+      background: none;
+      border: none;
+      color: var(--text-main);
+      cursor: pointer;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: rgba(28, 28, 30, 0.85);
+      width: 85%;
+      max-width: 320px;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      transform: scale(0.95);
+      transition: transform 0.3s ease;
+      border: 0.5px solid var(--border);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      border-bottom: 0.5px solid var(--border);
+      padding-bottom: 12px;
+      text-align: center;
+    }
+
+    .modal-section { margin-bottom: 18px; }
+
+    .modal-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-list { list-style: none; }
+
+    .modal-list li {
+      font-size: 15px;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      display: flex;
+      font-weight: 500;
+    }
+
+    .modal-list li::before {
+      content: "-";
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .close-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      border: none;
+      padding: 14px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+    
+    .close-btn:active { background: rgba(255, 255, 255, 0.2); }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h1>Momentum Fitness</h1>
+  </nav>
+
+  <div class="container">
+    
+    <div class="header-container">
+      <h2 class="header-title">Mari</h2>
+      <button class="menu-btn" onclick="openModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div id="loader">Sincronizando rutinas...</div>
+    <div id="app-content"></div>
+
+  </div>
+
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-content">
+      <div class="modal-title">Parámetros Diarios</div>
+      
+      <div class="modal-section">
+        <div class="modal-section-title">Cardio</div>
+        <ul class="modal-list">
+          <li>Inclinación 10-12%</li>
+          <li>Velocidad: 4.8 - 5.5 km/h</li>
+          <li>Pulsaciones: 120 - 135 pp</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Pasos</div>
+        <ul class="modal-list">
+          <li>12000 a 15000 diarios</li>
+        </ul>
+      </div>
+
+      <button class="close-btn" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // ⚠️ PEGA AQUÍ TU MISMA URL DE IMPLEMENTACIÓN QUE ya usabas
+    // (la que termina en /exec)
+    // ============================================================
+    const APP_URL = "https://script.google.com/macros/s/AKfycbxUEWaRB4UyFAJNmvqnbxqAd4U6x0SAukxLukM-7_ZtgryllRDQPyOFdigTbb1BRe9dSQ/exec";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch(APP_URL + '?action=getPlanData')
+        .then(res => res.json())
+        .then(renderData)
+        .catch(err => {
+          document.getElementById('loader').innerText = 'Error al cargar. Revisa tu conexión.';
+          console.error(err);
+        });
+    });
+
+    // Convierte fechas ISO crudas a formato "Lun, 20 jul". Si ya viene
+    // formateada desde el backend, la deja tal cual.
+    function formatDateApple(raw) {
+      if (typeof raw !== 'string') raw = String(raw);
+      const pareceISO = /^\d{4}-\d{2}-\d{2}T/.test(raw);
+      if (!pareceISO) return raw;
+
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return raw;
+
+      let formatted = d.toLocaleDateString('es-ES', {
+        weekday: 'short', day: 'numeric', month: 'short'
+      });
+      formatted = formatted.replace(/\./g, '');
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+
+    function renderData(data) {
+      document.getElementById('loader').style.display = 'none';
+      const container = document.getElementById('app-content');
+      container.innerHTML = ''; // limpiamos por si se vuelve a llamar
+
+      // Orden: Hoy primero, futuros después, pasados al final
+      const orden = { today: 0, future: 1, past: 2 };
+      data.sort((a, b) => (orden[a.category] ?? 1) - (orden[b.category] ?? 1));
+
+      data.forEach(dia => {
+        const isOverallDone = dia.estadoGeneral === 'Completado';
+        const isToday = dia.category === 'today';
+        const diaLabel = formatDateApple(dia.dia);
+        
+        let tasksHtml = '';
+        dia.tasks.forEach(task => {
+          if (task.id === 'agua') {
+            // --- Tarjeta especial de Hidratación (contador) ---
+            const target = task.target || 0;
+            const count = task.count || 0;
+            const pct = target > 0 ? Math.min(100, (count / target) * 100) : 0;
+
+            tasksHtml += `
+              <div class="task-item hydration ${task.done ? 'done' : ''}" id="hydration-${dia.index}">
+                <div class="hydration-info">
+                  <div class="task-name">${task.name}</div>
+                  <div class="hydration-bar">
+                    <div class="hydration-bar-fill" style="width:${pct}%"></div>
+                  </div>
+                  <div class="hydration-count">${count} / ${target || '?'} L</div>
+                </div>
+                <div class="hydration-controls">
+                  <button class="water-btn minus" onclick="handleWaterUpdate(${dia.index}, ${task.col}, -1)">−</button>
+                  <button class="water-btn plus" onclick="handleWaterUpdate(${dia.index}, ${task.col}, 1)">+1L</button>
+                </div>
+              </div>
+            `;
+          } else {
+            tasksHtml += `
+              <div class="task-item ${task.done ? 'done' : ''}" onclick="handleTaskToggle(this, ${dia.index}, ${task.col})">
+                <div class="task-circle"></div>
+                <div class="task-info">
+                  <div class="task-name">${task.name}</div>
+                  <div class="task-val">${task.val}</div>
+                </div>
+              </div>
+            `;
+          }
+        });
+
+        const card = document.createElement('div');
+        card.className = `card ${dia.category}`;
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="day-wrapper">
+              ${isToday ? '<span class="badge-today">Hoy</span>' : ''}
+              <div class="day-title">${diaLabel}</div>
+            </div>
+            <div class="status-badge ${isOverallDone ? 'done' : ''}" id="badge-${dia.index}">
+              ${isOverallDone ? 'Completado' : 'Pendiente'}
+            </div>
+          </div>
+          <div class="task-list">
+            ${tasksHtml}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function handleTaskToggle(element, rowIndex, colIndex) {
+      const isNowDone = !element.classList.contains('done');
+      element.classList.toggle('done');
+
+      fetch(APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'toggleTask', rowIndex, colIndex, isDone: isNowDone })
+      })
+        .then(res => res.json())
+        .then(data => {
+          const badge = document.getElementById('badge-' + rowIndex);
+          if (data.allDone) {
+            badge.innerText = "Completado";
+            badge.classList.add('done');
+          } else {
+            badge.innerText = "Pendiente";
+            badge.classList.remove('done');
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Suma o resta 1 litro en la tarjeta de Hidratación
+    function handleWaterUpdate(rowIndex, colIndex, delta) {
+      fetch(APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'updateWater', rowIndex, colIndex, delta })
+      })
+        .then(res => res.json())
+        .then(data => {
+          updateHydrationUI(rowIndex, data);
+          const badge = document.getElementById('badge-' + rowIndex);
+          if (data.allDone) {
+            badge.innerText = "Completado";
+            badge.classList.add('done');
+          } else {
+            badge.innerText = "Pendiente";
+            badge.classList.remove('done');
+          }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function updateHydrationUI(rowIndex, data) {
+      const item = document.getElementById('hydration-' + rowIndex);
+      if (!item) return;
+      const target = data.target || 0;
+      const count = data.count || 0;
+      const pct = target > 0 ? Math.min(100, (count / target) * 100) : 0;
+
+      item.querySelector('.hydration-bar-fill').style.width = pct + '%';
+      item.querySelector('.hydration-count').innerText = count + ' / ' + (target || '?') + ' L';
+
+      if (target > 0 && count >= target) {
+        item.classList.add('done');
+      } else {
+        item.classList.remove('done');
+      }
+    }
+
+    // Funciones del Modal
+    function openModal() {
+      const modal = document.getElementById('infoModal');
+      modal.style.display = 'flex';
+      setTimeout(() => modal.classList.add('active'), 10);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('infoModal');
+      modal.classList.remove('active');
+      setTimeout(() => modal.style.display = 'none', 300);
+    }
+  </script>
+</body>
+</html>
