@@ -190,7 +190,7 @@
       height: 100%;
       background: var(--accent);
       border-radius: 4px;
-      transition: width 0.3s ease;
+      transition: width 0.25s ease;
     }
 
     .task-item.hydration.done .hydration-bar-fill {
@@ -225,9 +225,38 @@
 
     .water-btn.plus { background: var(--accent); }
     .water-btn.minus { background: rgba(255,255,255,0.1); color: var(--text-muted); }
-    .water-btn:active { opacity: 0.6; }
+    .water-btn:active { opacity: 0.5; transform: scale(0.95); }
 
-    #loader { text-align: center; color: var(--text-muted); margin-top: 40px; font-size: 15px; }
+    /* Pantalla de carga: fondo borroso + círculo, estilo Apple */
+    #loader {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      z-index: 3000;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   
     .header-container {
       display: flex;
@@ -344,7 +373,7 @@
   <div class="container">
     
     <div class="header-container">
-      <h2 class="header-title">Mari</h2>
+      <h2 class="header-title">Huracán</h2>
       <button class="menu-btn" onclick="openModal()">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
           <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -354,9 +383,13 @@
       </button>
     </div>
 
-    <div id="loader">Sincronizando rutinas...</div>
     <div id="app-content"></div>
 
+  </div>
+
+  <div id="loader">
+    <div class="spinner"></div>
+    <div>Sincronizando rutinas...</div>
   </div>
 
   <div class="modal-overlay" id="infoModal">
@@ -389,13 +422,32 @@
     // (la que termina en /exec)
     // ============================================================
     const APP_URL = "https://script.google.com/macros/s/AKfycbxUEWaRB4UyFAJNmvqnbxqAd4U6x0SAukxLukM-7_ZtgryllRDQPyOFdigTbb1BRe9dSQ/exec";
+    const CACHE_KEY = 'momentum_plan_cache';
 
     document.addEventListener("DOMContentLoaded", () => {
+      // 1. Si ya tenemos datos guardados de la visita anterior, los mostramos YA,
+      //    sin esperar al servidor. Esto hace que la app abra al instante.
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try { renderData(JSON.parse(cached)); } catch (e) { /* caché corrupta, ignorar */ }
+      }
+
+      // 2. En paralelo, siempre buscamos los datos frescos del servidor.
+      //    Si había caché, esto actualiza silenciosamente por detrás.
+      //    Si no había caché, esto es lo que muestra el spinner mientras carga.
       fetch(APP_URL + '?action=getPlanData')
         .then(res => res.json())
-        .then(renderData)
+        .then(data => {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          renderData(data);
+        })
         .catch(err => {
-          document.getElementById('loader').innerText = 'Error al cargar. Revisa tu conexión.';
+          if (!cached) {
+            document.getElementById('loader').innerHTML =
+              '<div>No se pudo conectar. Revisa tu conexión.</div>';
+          } else {
+            document.getElementById('loader').style.display = 'none';
+          }
           console.error(err);
         });
     });
@@ -420,9 +472,8 @@
     function renderData(data) {
       document.getElementById('loader').style.display = 'none';
       const container = document.getElementById('app-content');
-      container.innerHTML = ''; // limpiamos por si se vuelve a llamar
+      container.innerHTML = '';
 
-      // Orden: Hoy primero, futuros después, pasados al final
       const orden = { today: 0, future: 1, past: 2 };
       data.sort((a, b) => (orden[a.category] ?? 1) - (orden[b.category] ?? 1));
 
@@ -434,13 +485,12 @@
         let tasksHtml = '';
         dia.tasks.forEach(task => {
           if (task.id === 'agua') {
-            // --- Tarjeta especial de Hidratación (contador) ---
             const target = task.target || 0;
             const count = task.count || 0;
             const pct = target > 0 ? Math.min(100, (count / target) * 100) : 0;
 
             tasksHtml += `
-              <div class="task-item hydration ${task.done ? 'done' : ''}" id="hydration-${dia.index}">
+              <div class="task-item hydration ${task.done ? 'done' : ''}" id="hydration-${dia.index}" data-count="${count}" data-target="${target}">
                 <div class="hydration-info">
                   <div class="task-name">${task.name}</div>
                   <div class="hydration-bar">
@@ -509,15 +559,34 @@
         .catch(err => console.error(err));
     }
 
-    // Suma o resta 1 litro en la tarjeta de Hidratación
+    // Suma o resta 1 litro en la tarjeta de Hidratación.
+    // Actualización OPTIMISTA: la barra se mueve al instante, sin esperar
+    // la respuesta del servidor. Luego se sincroniza en segundo plano.
     function handleWaterUpdate(rowIndex, colIndex, delta) {
+      const item = document.getElementById('hydration-' + rowIndex);
+      if (!item) return;
+
+      let target = Number(item.dataset.target) || 0;
+      let current = Number(item.dataset.count) || 0;
+
+      current += delta;
+      if (current < 0) current = 0;
+      if (target > 0 && current > target) current = target;
+
+      item.dataset.count = current;
+      updateHydrationUI(rowIndex, { count: current, target: target });
+
       fetch(APP_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'updateWater', rowIndex, colIndex, delta })
       })
         .then(res => res.json())
         .then(data => {
+          // Sincronizamos con el valor real del servidor por si hubo diferencia
+          item.dataset.count = data.count;
+          item.dataset.target = data.target;
           updateHydrationUI(rowIndex, data);
+
           const badge = document.getElementById('badge-' + rowIndex);
           if (data.allDone) {
             badge.innerText = "Completado";
